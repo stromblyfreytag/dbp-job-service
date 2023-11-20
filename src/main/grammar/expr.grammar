@@ -1,0 +1,133 @@
+// CUP specification for a simple expression evaluator (no actions)
+
+package com.trustwave.dbpjobservice.expr;
+
+import java.util.List;
+import java.util.ArrayList;
+import java_cup.runtime.Symbol;
+
+parser code {:
+    public  String input;
+    
+ 	public void syntax_error( Symbol token )
+    {
+       int left = token.left - 8;
+       if (left < 0) 
+           left = 0;
+       int right = token.right + 8;
+       if (right > input.length()) 
+           right = input.length();
+           
+       String s = input.substring(left, right);
+       s = s.replace("\n", " ").replace("\r", "");
+       
+       String msg = "Syntax error in \"" + s + "\"";
+       if (token.value != null) {
+           msg = msg + ", token=" + token.value;
+       }
+       throw new RuntimeException( msg );
+    }
+:}
+
+/* Terminals (tokens returned by the scanner). */
+terminal            PLUS, MINUS, TIMES, DIVIDE, MOD;
+terminal            GT, GE, LT, LE, EQ, NEQ, IN, MATCH, NMATCH, LIKE;
+terminal            QUESTION, COLON, COMMA;
+terminal            AND, OR, NOT, EXISTS, ISNUMBER, EMPTY;
+terminal            LPAREN, RPAREN, UMINUS;
+terminal            DOT, DEFAULT;
+terminal            TRUE, FALSE, NULL;
+terminal Long       NUMBER;
+terminal String     STRING;
+terminal String     IDENTIFIER;
+
+/* Non terminals */
+non terminal String  property;
+non terminal Object  listelem;
+non terminal Expression expr, aexpr;
+non terminal BooleanExpr lexpr;
+non terminal List list, rlist;
+
+/* Precedences */
+precedence left QUESTION;
+precedence nonassoc COLON;
+precedence left OR;
+precedence left AND;
+precedence right NOT;
+precedence nonassoc GT, GE, LT, LE, EQ, NEQ, IN;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE, MOD;
+precedence left UMINUS, EXISTS, ISNUMBER, EMPTY;
+precedence nonassoc DEFAULT;
+precedence left DOT;
+
+/*-----------------------------------------------------------------*/
+expr  ::= aexpr:e                    {: RESULT = e; :}
+        | lexpr:e                    {: RESULT = e; :}
+        ;
+
+aexpr ::= aexpr:e1 PLUS   aexpr:e2   {: RESULT = new PlusExpr(e1,e2);   :}
+	    | aexpr:e1 MINUS  aexpr:e2   {: RESULT = new MinusExpr(e1,e2);  :}
+	    | aexpr:e1 TIMES  aexpr:e2   {: RESULT = new TimesExpr(e1,e2);  :}
+	    | aexpr:e1 DIVIDE aexpr:e2   {: RESULT = new DivExpr(e1,e2);    :}
+	    | aexpr:e1 MOD    aexpr:e2   {: RESULT = new ModExpr(e1,e2);    :}
+	    | MINUS aexpr:e              {: RESULT = new UminusExpr(e); :} %prec UMINUS
+	    | lexpr:e0 QUESTION aexpr:e1 COLON aexpr:e2
+	                                 {: RESULT = new CondExpr(e0,e1,e2);    :}
+	    | property:p                 {: RESULT = new PropertyExpr(p);       :}
+	    | property:p DEFAULT aexpr:e {: RESULT = new PropertyDfltExpr(p,e); :}
+	    | STRING:s                   {: RESULT = new ConstantExpr(s);       :}
+        | NUMBER:n                   {: RESULT = new ConstantExpr(n);       :}
+        | NULL                       {: RESULT = new ConstantExpr(null);    :}
+	    | aexpr:e    DOT IDENTIFIER:m LPAREN RPAREN  {: RESULT = new MethodCallExpr(e,m);   :}
+	    | property:p DOT IDENTIFIER:m LPAREN RPAREN  {: RESULT = new MethodCallExpr(new PropertyExpr(p),m);   :}
+	    | aexpr:e DOT IDENTIFIER:m list:l     {: RESULT = new MethodCallExpr(e,m,l);   :}
+	    | property:p DOT IDENTIFIER:m list:l  {: RESULT = new MethodCallExpr(new PropertyExpr(p),m,l);   :}
+	    | LPAREN aexpr:e RPAREN      {: RESULT = e; :}
+	    ;
+	    
+lexpr ::= lexpr:e1 AND lexpr:e2      {: RESULT = new AndExpr(e1,e2); :}
+        | lexpr:e1 OR  lexpr:e2      {: RESULT = new OrExpr(e1,e2);  :}
+        | NOT lexpr:e                {: RESULT = new NotExpr(e);     :}
+	    | aexpr:e1 EQ  aexpr:e2      {: RESULT = new EqExpr(e1,e2);  :}
+	    | aexpr:e1 NEQ aexpr:e2      {: RESULT = new NeqExpr(e1,e2); :}
+	    | aexpr:e1 EQ  lexpr:e2      {: RESULT = new EqExpr(e1,e2);  :}
+	    | aexpr:e1 NEQ lexpr:e2      {: RESULT = new NeqExpr(e1,e2); :}
+	    | lexpr:e1 EQ  lexpr:e2      {: RESULT = new EqExpr(e1,e2);  :}
+	    | lexpr:e1 NEQ lexpr:e2      {: RESULT = new NeqExpr(e1,e2); :}
+	    | aexpr:e1 MATCH aexpr:e2    {: RESULT = new MatchExpr(e1,e2);  :}
+	    | aexpr:e1 NMATCH aexpr:e2   {: RESULT = new NMatchExpr(e1,e2); :}
+	    | aexpr:e1 LIKE aexpr:e2     {: RESULT = new LikeExpr(e1,e2);   :}
+	    | aexpr:e1 NOT LIKE aexpr:e2 {: RESULT = new NotExpr( new LikeExpr(e1,e2) );  :}
+	    | aexpr:e1 GT aexpr:e2       {: RESULT = new GtExpr(e1,e2);  :}
+	    | aexpr:e1 GE aexpr:e2       {: RESULT = new GeExpr(e1,e2);  :}
+	    | aexpr:e1 LT aexpr:e2       {: RESULT = new LtExpr(e1,e2);  :}
+	    | aexpr:e1 LE aexpr:e2       {: RESULT = new LeExpr(e1,e2);  :}
+	    | EXISTS property:p          {: RESULT = new ExistsExpr(p);  :}
+	    | EXISTS LPAREN property:p RPAREN {: RESULT = new ExistsExpr(p);  :}
+	    | ISNUMBER property:p        {: RESULT = new IsNumberExpr(p);  :}
+	    | ISNUMBER LPAREN property:p RPAREN {: RESULT = new IsNumberExpr(p);  :}
+	    | EMPTY property:p           {: RESULT = new EmptyExpr(p);  :}
+	    | EMPTY LPAREN property:p RPAREN {: RESULT = new EmptyExpr(p);  :}
+	    | aexpr:e IN list:l          {: RESULT = new InExpr(e,l);    :}
+	    | aexpr:e NOT IN list:l      {: RESULT = new NotExpr( new InExpr(e,l) ); :}
+	    | LPAREN lexpr:e RPAREN      {: RESULT = e; :}
+	    | lexpr:e0 QUESTION lexpr:e1 COLON lexpr:e2
+	                                 {: RESULT = new BooleanCondExpr(e0,e1,e2); :}
+        | TRUE                       {: RESULT = new BooleanConstExpr(true);  :}
+        | FALSE                      {: RESULT = new BooleanConstExpr(false); :}
+	    ;
+
+property ::= IDENTIFIER:name                {: RESULT = name; :}
+        |    property:p DOT IDENTIFIER:name {: RESULT = p + "." + name; :}
+	    ;
+
+list  ::= LPAREN rlist:l RPAREN      {: RESULT = l; :}
+         ;
+rlist ::= listelem:e                 {: RESULT = new ArrayList<Object>(); RESULT.add( e ); :}
+         | rlist:l COMMA listelem:e  {: RESULT = l; RESULT.add( e ); :}
+         ;
+listelem ::= STRING:s                {: RESULT = s; :}
+         |   NUMBER:n                {: RESULT = n; :} 
+         ;
+

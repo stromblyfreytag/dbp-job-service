@@ -27,8 +27,9 @@
         <lombok.version>1.18.10</lombok.version>
         <mapstruct.version>1.5.5.Final</mapstruct.version>
         <hibernate.version>5.2.17.Final</hibernate.version>
-
+        <parser.dir>${project.build.directory}/generated-sources/java-cup</parser.dir>
         <commons-codec.version>1.14</commons-codec.version>
+        <commons-io.version>2.11.0</commons-io.version>
     </properties>
 
     <distributionManagement>
@@ -41,6 +42,23 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>de.jflex</groupId>
+                <artifactId>maven-jflex-plugin</artifactId>
+                <executions>
+                    <!--
+                    In Eclipse install the "m2e connector for jflex".
+                    Update site:
+                    https://raw.github.com/adrianboimvaser/m2e-jflex-connector/master/jflex-connector-update-site
+                     -->
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -67,12 +85,81 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <tasks>
+                                <java fork="true" failonerror="true"
+                                      classname="java_cup.Main" maxmemory="128M"
+                                      input="src/main/grammar/expr.grammar" taskname="java-cup">
+                                    <classpath refid="maven.plugin.classpath" />
+                                    <arg value="-parser" />
+                                    <arg value="_parser" />
+                                    <arg value="-symbols" />
+                                    <arg value="Sym" />
+                                </java>
+                                <mkdir dir="${parser.dir}" />
+                                <move file="_parser.java" todir="${parser.dir}/com/trustwave/dbpjobservice/expr" />
+                                <move file="Sym.java" todir="${parser.dir}/com/trustwave/dbpjobservice/expr" />
+                            </tasks>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>edu.princeton.cup</groupId>
+                        <artifactId>java-cup</artifactId>
+                        <version>10k</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>1.7</version>
+                <executions>
+                    <execution>
+                        <id>add-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${parser.dir}</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
     <dependencies>
         <!-- External dependencies -->
-
+        <dependency>
+            <groupId>de.jflex</groupId>
+            <artifactId>jflex-maven-plugin</artifactId>
+            <version>1.9.1</version>
+        </dependency>
+        <dependency>
+            <groupId>de.jflex</groupId>
+            <artifactId>jflex</artifactId>
+            <version>1.9.1</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons-io.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.googlecode.sarasvati</groupId>
             <artifactId>sarasvati-core</artifactId>

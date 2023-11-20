@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd"
+		>
+
+	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+	    <property name="locations">
+	    	<!-- From PropertiesLoaderSupport.setLocations() description:
+	    	     ... Note: Properties defined in later files will override properties defined
+	    	     earlier files, in case of overlapping keys ...
+	    	 -->
+	    	<list>
+	        	  <value>classpath:default.jobservice.properties</value>
+	        	  <value>classpath:default.jobservice.internal.properties</value>
+	        	  <value>classpath:jobservice.internal.properties</value>
+	        	  <value>classpath:jobservice.properties</value>
+	    	</list>
+	    </property>
+	    <property name="ignoreResourceNotFound" value="true"/>
+	</bean>
+
+	<bean name="configuration" class="com.trustwave.dbpjobservice.impl.Configuration">
+		<!-- Minimal and maximal number of action-executing threads: -->
+	    <property name="minActionThreads" value="${min.action.threads}"/>
+	    <property name="maxActionThreads" value="${max.action.threads}"/>
+	    
+	    <!-- Set to 'false' if existing job instances should not be auto-resumed
+	         on service startup  -->
+	    <property name="resumeJobInstancesOnStartup" value="${resume.job.instances.on.startup}"/>
+	    
+	    <!-- Set to true to use average action execution times for percentage evaluation.
+	      -->
+	    <property name="useAverageTimeForPercentage" value="${use.average.time.for.percentage}"/>
+	    
+	    <property name="workflowExecutorBatchSize" value="${workflow.executor.batch.size}"/>
+	    <property name="workflowExecutorQueueSize" value="${workflow.executor.queue.size}"/>
+	    <property name="saveOutputInWorkflowThread" value="true"/>
+	    
+	    <!-- process cache size - approximately - number of processes
+	         you are planning to run simultaneously; 0 switches off caching  -->
+	    <property name="processCacheSize" value="${process.cache.size}"/>
+	    
+	    <property name="useLifoExecutionPolicy" value="${use.lifo.execution.policy}"/>
+	</bean>
+	
+</beans>

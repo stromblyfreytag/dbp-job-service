@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd
+		http://www.springframework.org/schema/tx    http://www.springframework.org/schema/tx/spring-tx-2.0.xsd
+		http://www.springframework.org/schema/aop 	http://www.springframework.org/schema/aop/spring-aop-2.0.xsd">
+
+
+	<bean name="taskChainFactory" class="com.trustwave.dbpjobservice.impl.TaskChainFactory"
+	      init-method="init">
+		<property name="jobDao" ref="jobDao"/>
+		<property name="statusDao" ref="statusDao"/>
+		<property name="config" ref="configuration"/>
+	</bean>
+	
+	<bean name="jobStatusRetriever" class="JobStatusRetriever">
+		<property name="taskChainFactory" ref="taskChainFactory"/>
+		<property name="statusDao" ref="statusDao"/>
+		<property name="jobDao" ref="jobDao"/>
+		<property name="engineFactory"  ref="engineFactory"/>
+	</bean>
+	
+	<bean name="environmentManager" class="com.appsec.jobservice.parameters.EnvironmentManager">
+		<property name="engineFactory"  ref="engineFactory"/>
+	</bean>
+	
+	<bean name="jobManager" class="JobManager">
+		<property name="jobDao" ref="jobDao"/>
+		<property name="taskChainFactory" ref="taskChainFactory"/>
+		<property name="workflowManager" ref="workflowManager"/>
+		<property name="config" ref="configuration"/>
+		<property name="environmentManager" ref="environmentManager"/>
+		<property name="engineFactory"  ref="engineFactory"/>
+	</bean>
+	
+	<bean name="extendedTemplateDescriptionCache" 
+	      class="ExtendedTemplateDescriptionCache"
+	      init-method="init">
+		<property name="jobManager" ref="jobManager"/>
+		<property name="workflowManager" ref="workflowManager"/>
+	</bean>
+	
+	<bean name="actionManager" class="ActionManager"
+	      init-method="registerWithFactory" >
+		<constructor-arg ref="actionExecutor"/>
+	</bean>
+	
+	<bean name="eventManager" class="EventManager">
+		<property name="actionManager" ref="actionManager"/>
+	</bean>
+	
+	<bean name="jobProcessManager" class="JobProcessManager"
+	      init-method="init">
+		<property name="jobManager" ref="jobManager"/>
+		<property name="processDao" ref="processDao"/>
+		<property name="workflowManager" ref="workflowManager"/>
+		<property name="workflowExecutor" ref="workflowExecutor"/>
+		<property name="jobStatusManager" ref="jobStatusManager"/>
+		<property name="jobStatusRetriever" ref="jobStatusRetriever"/>
+		<property name="actionManager" ref="actionManager"/>
+		<property name="eventManager" ref="eventManager"/>
+		<property name="config" ref="configuration"/>
+		<property name="environmentManager" ref="environmentManager"/>
+		<property name="engineFactory"  ref="engineFactory"/>
+	</bean>
+	
+	<bean name="jobStatusManager" class="JobStatusManager"
+	      factory-method="createInstance">
+		<property name="processDao" ref="processDao"/>
+		<property name="jobManager" ref="jobManager"/>
+        <property name="taskChainFactory" ref="taskChainFactory"/>
+		<property name="statusDao" ref="statusDao"/>
+    </bean>
+
+	<bean name="actionFactory" class="ActionFactory"
+	      init-method="init">
+	      <property name="workflowManager" ref="workflowManager"/>
+	      <property name="processManager" ref="jobProcessManager"/>
+	</bean>
+	
+	<bean id="workflowLoader" class="WorkflowLoader" init-method="loadWorkflows">
+		<property name="jobManager" ref="jobManager"/>
+	</bean>
+
+	<bean id="auditor" class="com.appsec.service.eventlogging.Log4jAuditor"/>
+
+	<bean id="auditorWrapper" class="com.appsec.service.eventlogging.WebServiceAuditorWrapper">
+	   <constructor-arg value="Job Service" />
+	   <constructor-arg ref="auditor" />
+	</bean>
+	
+</beans>
